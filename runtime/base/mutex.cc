@@ -168,7 +168,9 @@ void BaseMutex::CheckSafeToWait(Thread* self) {
         }
       }
     }
-    CHECK(!bad_mutexes_held);
+    if (gAborting == 0) {  // Avoid recursive aborts.
+      CHECK(!bad_mutexes_held);
+    }
   }
 }
 
@@ -284,8 +286,12 @@ Mutex::~Mutex() {
     LOG(shutting_down ? WARNING : FATAL) << "destroying mutex with owner: " << exclusive_owner_;
   } else {
     CHECK_EQ(exclusive_owner_, 0U)  << "unexpectedly found an owner on unlocked mutex " << name_;
-    CHECK_EQ(num_contenders_.LoadSequentiallyConsistent(), 0)
-        << "unexpectedly found a contender on mutex " << name_;
+    if (level_ != kMonitorLock) {
+      // Only check the lock level for non monitor locks since we may still have java threads
+      // waiting on monitors.
+      CHECK_EQ(num_contenders_.LoadSequentiallyConsistent(), 0)
+          << "unexpectedly found a contender on mutex " << name_;
+    }
   }
 #else
   // We can't use CHECK_MUTEX_CALL here because on shutdown a suspended daemon thread
