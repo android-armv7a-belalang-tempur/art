@@ -29,9 +29,9 @@ include art/build/Android.common.mk
 # Beware that tests may use the non-debug build for performance, notable 055-enum-performance
 #
 ART_BUILD_TARGET_NDEBUG ?= true
-ART_BUILD_TARGET_DEBUG ?= false
+ART_BUILD_TARGET_DEBUG ?= true
 ART_BUILD_HOST_NDEBUG ?= true
-ART_BUILD_HOST_DEBUG ?= false
+ART_BUILD_HOST_DEBUG ?= true
 
 ifeq ($(ART_BUILD_TARGET_NDEBUG),false)
 $(info Disabling ART_BUILD_TARGET_NDEBUG)
@@ -86,7 +86,7 @@ endif
 #
 # Used to enable optimizing compiler
 #
-ART_USE_OPTIMIZING_COMPILER := true
+ART_USE_OPTIMIZING_COMPILER := false
 ifneq ($(wildcard art/USE_OPTIMIZING_COMPILER),)
 $(info Enabling ART_USE_OPTIMIZING_COMPILER because of existence of art/USE_OPTIMIZING_COMPILER)
 ART_USE_OPTIMIZING_COMPILER := true
@@ -182,8 +182,7 @@ ifeq ($(ART_SEA_IR_MODE),true)
 endif
 
 art_non_debug_cflags := \
-  -O3 \
-  -lto
+  -O3
 
 art_host_non_debug_cflags := \
   $(art_non_debug_cflags)
@@ -200,9 +199,11 @@ endif
 # FIXME: upstream LLVM has a vectorizer bug that needs to be fixed
 ART_TARGET_CLANG_CFLAGS_arm64 += \
   -fno-vectorize
-# Force non-debug always
+
 art_debug_cflags := \
-  $(art_non_debug_cflags)
+  -O1 \
+  -DDYNAMIC_ANNOTATIONS_ENABLED=1 \
+  -UNDEBUG
 
 ifndef LIBART_IMG_HOST_BASE_ADDRESS
   $(error LIBART_IMG_HOST_BASE_ADDRESS unset)
@@ -278,13 +279,8 @@ ART_HOST_CFLAGS += -Wthread-safety
 # ART_TARGET_CFLAGS += -fno-omit-frame-pointer -marm -mapcs
 
 # Addition CPU specific CFLAGS.
-CORTEX_A15_TYPE := \
-	cortex-a15 \
-	krait \
-	denver
-
 ifeq ($(TARGET_ARCH),arm)
-  ifneq ($(filter $(CORTEX_A15_TYPE), $(TARGET_CPU_VARIANT)),)
+  ifneq ($(filter cortex-a15, $(TARGET_CPU_VARIANT)),)
     # Fake a ARM feature for LPAE support.
     ART_TARGET_CFLAGS += -D__ARM_FEATURE_LPAE=1
   endif
