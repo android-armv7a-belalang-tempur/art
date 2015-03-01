@@ -39,8 +39,6 @@
 namespace art {
 namespace mirror {
 
-Atomic<uint32_t> Object::hash_code_seed(987654321U + std::time(nullptr));
-
 class CopyReferenceFieldsWithReadBarrierVisitor {
  public:
   explicit CopyReferenceFieldsWithReadBarrierVisitor(Object* dest_obj)
@@ -137,18 +135,15 @@ Object* Object::Clone(Thread* self) {
   return copy;
 }
 
-uint32_t Object::GenerateIdentityHashCode() {
-  uint32_t expected_value, new_value;
+int32_t Object::GenerateIdentityHashCode() {
+  static AtomicInteger seed(987654321 + std::time(nullptr));
+  int32_t expected_value, new_value;
   do {
-    expected_value = hash_code_seed.LoadRelaxed();
+    expected_value = static_cast<uint32_t>(seed.LoadRelaxed());
     new_value = expected_value * 1103515245 + 12345;
-  } while (!hash_code_seed.CompareExchangeWeakRelaxed(expected_value, new_value) ||
-      (expected_value & LockWord::kHashMask) == 0);
+  } while ((expected_value & LockWord::kHashMask) == 0 ||
+      !seed.CompareExchangeWeakRelaxed(expected_value, new_value));
   return expected_value & LockWord::kHashMask;
-}
-
-void Object::SetHashCodeSeed(uint32_t new_seed) {
-  hash_code_seed.StoreRelaxed(new_seed);
 }
 
 int32_t Object::IdentityHashCode() const {
